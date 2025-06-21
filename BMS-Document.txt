@@ -100,7 +100,7 @@ eksctl version
 1.3.4. Create EKS Cluster
 Execute the below commands as separate set
 (a)
-eksctl create cluster --name=kastro-eks \
+eksctl create cluster --name=kubernetes-eks \
                       --region=us-east-1 \
                       --zones=us-east-1a,us-east-1b \
                       --version=1.30 \
@@ -124,22 +124,23 @@ Without this, these services will not be able to access AWS resources securely.
 (c)
 Before executing the below command, in the 'ssh-public-key' keep the  '<PEM FILE NAME>' (dont give .pem. Just give the pem file name) which was used to create Jenkins Server
 
-eksctl create nodegroup --cluster=kastro-eks \
-                       --region=us-east-1 \
-                       --name=node2 \
-                       --node-type=t3.medium \
-                       --nodes=3 \
-                       --nodes-min=2 \
-                       --nodes-max=4 \
-                       --node-volume-size=20 \
-                       --ssh-access \
-                       --ssh-public-key=Kastro \
-                       --managed \
-                       --asg-access \
-                       --external-dns-access \
-                       --full-ecr-access \
-                       --appmesh-access \
-                       --alb-ingress-access
+eksctl create nodegroup \
+  --cluster=kubernetes-eks \
+  --region=ap-south-1 \
+  --name=node2 \
+  --node-type=t3.medium \
+  --nodes=3 \
+  --nodes-min=2 \
+  --nodes-max=4 \
+  --node-volume-size=20 \
+  --ssh-access \
+  --ssh-public-key=Mumbai \
+  --managed \
+  --asg-access \
+  --external-dns-access \
+  --full-ecr-access \
+  --appmesh-access \
+  --alb-ingress-access
 
 It will take 5-10 minutes 
 
