@@ -1,51 +1,44 @@
 pipeline {
     agent any
-
     tools {
         jdk 'jdk17'
-        nodejs 'node23'
+        nodejs 'node24'
     }
-
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
     }
-
     stages {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
-
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/Sharad-Parit6094/Book-My-Show-Application.git'
                 sh 'ls -la'
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh '''
                     ${SCANNER_HOME}/bin/sonar-scanner \
                       -Dsonar.projectName=BMS \
-                      -Dsonar.projectKey=BMS \
+                      -Dsonar.projectKey=mumbai \
                       -Dsonar.sources=. \
                       -Dsonar.java.binaries=.
                     '''
                 }
             }
         }
-
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: true, credentialsId: 'Sonar-token'
+                    waitForQualityGate abortPipeline: true, credentialsId: 'sonar-token'
                 }
             }
         }
-
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -61,54 +54,47 @@ pipeline {
                 '''
             }
         }
-
         stage('OWASP Dependency-Check') {
             steps {
                 dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-
         stage('Trivy FS Scan') {
             steps {
                 sh 'trivy fs . > trivyfs.txt || true'
             }
         }
-
         stage('Docker Build & Push') {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
                         sh '''
                         echo "Building Docker image..."
-                        docker build --no-cache -t sharad9642/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
-
+                        docker build --no-cache -t sharad9642/BookMyShow:latest -f bookmyshow-app/Dockerfile bookmyshow-app
                         echo "Pushing image to Docker Hub..."
-                        docker push sharad9642/bms:latest
+                        docker push sharad9642/BookMyShow:latest
                         '''
                     }
                 }
             }
         }
-
         stage('Deploy to Container') {
             steps {
                 sh '''
                 echo "Stopping any existing container..."
                 docker stop bms || true
                 docker rm bms || true
-
                 echo "Starting new container..."
-                docker run -d --restart=always --name bms -p 3000:3000 sharad9642/bms:latest
+                docker run -d --restart=always --name bms -p 3000:3000 sharad9642/BookMyShow:latest
 
                 echo "Container logs (after 5s)..."
                 sleep 5
-                docker logs bms || true
+                docker logs BookMyShow || true
                 '''
             }
         }
     }
-
     post {
         always {
             emailext(
