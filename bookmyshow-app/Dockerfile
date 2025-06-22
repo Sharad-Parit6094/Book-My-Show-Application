@@ -1,5 +1,5 @@
-# Use Node.js 18 (or your Jenkins-configured version)
-FROM node:18
+# Use Node.js 24 (or your Jenkins-configured version)
+FROM node:24
 
 # Set working directory
 WORKDIR /app
