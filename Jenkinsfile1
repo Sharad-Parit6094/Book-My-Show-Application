@@ -1,3 +1,4 @@
+(without K8S Stage)
 pipeline {
     agent any
     tools {
@@ -38,25 +39,25 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
                 }
             }
         }
         stage('Install Dependencies') {
-            steps {
-                sh '''
-                    cd bookmyshow-app
-                    ls -la
-                    if [ -f package.json ]; then
-                        rm -rf node_modules package-lock.json
-                        npm install
-                    else
-                        echo "Error: package.json not found in bookmyshow-app!"
-                        exit 1
-                    fi
-                '''
-            }
-        }
+    steps {
+        sh '''
+            cd bookmyshow-app
+            ls -la
+            if [ -f package.json ]; then
+                rm -rf node_modules package-lock.json
+                npm install --legacy-peer-deps
+            else
+                echo "Error: package.json not found in bookmyshow-app!"
+                exit 1
+            fi
+        '''
+    }
+}
         stage('OWASP Dependency-Check') {
             steps {
                 dir('bookmyshow-app') {
@@ -64,16 +65,19 @@ pipeline {
                 }
             }
         }
+
         stage('Publish Dependency Check Report') {
             steps {
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
+
         stage('Trivy FS Scan') {
             steps {
                 sh 'trivy fs bookmyshow-app > trivyfs.txt || true'
             }
         }
+
         stage('Docker Build & Push') {
             steps {
                 script {
@@ -89,6 +93,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Container') {
             steps {
                 script {
@@ -109,6 +114,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             emailext attachLog: true,
