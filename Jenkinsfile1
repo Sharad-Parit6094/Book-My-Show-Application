@@ -1,9 +1,8 @@
-(without K8S Stage)
 pipeline {
     agent any
     tools {
         jdk 'jdk17'
-        nodejs 'node24'
+        nodejs 'node18'
     }
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
@@ -24,8 +23,9 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh ''' 
-                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BMS \
-                    -Dsonar.projectKey=BMS 
+                        $SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectName=BMS \
+                        -Dsonar.projectKey=BMS
                     '''
                 }
             }
@@ -33,28 +33,32 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
         stage('Install Dependencies') {
             steps {
                 sh '''
-                cd bookmyshow-app
-                ls -la  # Verify package.json exists
-                if [ -f package.json ]; then
-                    rm -rf node_modules package-lock.json  # Remove old dependencies
-                    npm install  # Install fresh dependencies
-                else
-                    echo "Error: package.json not found in bookmyshow-app!"
-                    exit 1
-                fi
+                    cd bookmyshow-app
+                    ls -la
+                    if [ -f package.json ]; then
+                        rm -rf node_modules package-lock.json
+                        npm install
+                    else
+                        echo "Error: package.json not found in bookmyshow-app!"
+                        exit 1
+                    fi
                 '''
             }
         }
         stage('OWASP Dependency-Check') {
             steps {
                 dependencyCheck additionalArguments: '--scan . --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+            }
+        }
+        stage('Publish Dependency Check Report') {
+            steps {
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
@@ -66,13 +70,13 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker') {
                         sh ''' 
-                        echo "Building Docker image..."
-                        docker build --no-cache -t sharad9642/bookmyshow -f bookmyshow-app/Dockerfile bookmyshow-app
+                            echo "Building Docker image..."
+                            docker build --no-cache -t sharad9642/bookmyshow -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                        echo "Pushing Docker image to registry..."
-                        docker push sharad9642/bookmyshow
+                            echo "Pushing Docker image to registry..."
+                            docker push sharad9642/bookmyshow
                         '''
                     }
                 }
@@ -81,19 +85,19 @@ pipeline {
         stage('Deploy to Container') {
             steps {
                 sh ''' 
-                echo "Stopping and removing old container..."
-                docker stop bms || true
-                docker rm bms || true
+                    echo "Stopping and removing old container..."
+                    docker stop bms || true
+                    docker rm bms || true
 
-                echo "Running new container on port 3000..."
-                docker run -d --restart=always --name bms -p 3000:3000 sharad9642/bookmyshow
+                    echo "Running new container on port 3000..."
+                    docker run -d --restart=always --name bms -p 3000:3000 sharad9642/bookmyshow
 
-                echo "Checking running containers..."
-                docker ps -a
+                    echo "Checking running containers..."
+                    docker ps -a
 
-                echo "Fetching logs..."
-                sleep 5  # Give time for the app to start
-                docker logs bms
+                    echo "Fetching logs..."
+                    sleep 5
+                    docker logs bms
                 '''
             }
         }
@@ -101,12 +105,14 @@ pipeline {
     post {
         always {
             emailext attachLog: true,
-                subject: "'${currentBuild.result}'",
-                body: "Project: ${env.JOB_NAME}<br/>" +
-                      "Build Number: ${env.BUILD_NUMBER}<br/>" +
-                      "URL: ${env.BUILD_URL}<br/>",
+                subject: "'${currentBuild.result ?: 'UNKNOWN'}'",
+                body: """\
+                    Project: ${env.JOB_NAME}<br/>
+                    Build Number: ${env.BUILD_NUMBER}<br/>
+                    URL: ${env.BUILD_URL}<br/>
+                """,
                 to: 'sharadparit9642@gmail.com',
-                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+                attachmentsPattern: 'trivyfs.txt'
         }
     }
 }
