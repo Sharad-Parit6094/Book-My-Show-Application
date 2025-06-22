@@ -44,20 +44,32 @@ pipeline {
             }
         }
         stage('Install Dependencies') {
+    options {
+        timeout(time: 4, unit: 'MINUTES') // fail-safe
+    }
     steps {
         sh '''
             cd bookmyshow-app
-            ls -la
-            if [ -f package.json ]; then
-                rm -rf node_modules package-lock.json
-                npm install --legacy-peer-deps
-            else
-                echo "Error: package.json not found in bookmyshow-app!"
+            echo "Checking package.json..."
+            if [ ! -f package.json ]; then
+                echo "package.json not found!"
                 exit 1
             fi
+
+            echo "Cleaning previous installs..."
+            rm -rf node_modules package-lock.json
+
+            echo "Installing dependencies..."
+            npm install --legacy-peer-deps --loglevel=warn || {
+                echo "npm install failed"
+                exit 1
+            }
+
+            echo "npm install completed"
         '''
     }
 }
+
         stage('OWASP Dependency-Check') {
             steps {
                 dir('bookmyshow-app') {
@@ -65,6 +77,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Publish Dependency Check Report') {
             steps {
