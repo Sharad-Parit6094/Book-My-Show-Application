@@ -83,10 +83,10 @@ pipeline {
             steps {
                 sh '''
                 echo "Stopping any existing container..."
-                docker stop bms || true
-                docker rm bms || true
+                docker stop BookMyShow || true
+                docker rm BokMyshow || true
                 echo "Starting new container..."
-                docker run -d --restart=always --name bms -p 3000:3000 sharad9642/BookMyShow:latest
+                docker run -d --restart=always --name BookMyShow -p 3000:3000 sharad9642/BookMyShow:latest
 
                 echo "Container logs (after 5s)..."
                 sleep 5
