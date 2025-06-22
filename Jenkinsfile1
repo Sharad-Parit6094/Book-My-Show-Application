@@ -1,115 +1,129 @@
-(without K8S Stage)
 pipeline {
     agent any
+
     tools {
         jdk 'jdk17'
         nodejs 'node24'
     }
+
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
     }
+
     stages {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
+
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/Sharad-Parit6094/Book-My-Show-Application.git'
-                sh 'ls -la'  // Verify files after checkout
+                sh 'ls -la'
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar-server') {
-                    sh ''' 
-                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BMS \
-                    -Dsonar.projectKey=BMS 
+                    sh '''
+                        $SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectName=BMS \
+                        -Dsonar.projectKey=BMS
                     '''
                 }
             }
         }
+
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
+
         stage('Install Dependencies') {
             steps {
                 sh '''
-                cd bookmyshow-app
-                ls -la  # Verify package.json exists
-                if [ -f package.json ]; then
-                    rm -rf node_modules package-lock.json  # Remove old dependencies
-                    npm install  # Install fresh dependencies
-                else
-                    echo "Error: package.json not found in bookmyshow-app!"
-                    exit 1
-                fi
+                    cd bookmyshow-app
+                    ls -la
+                    if [ -f package.json ]; then
+                        rm -rf node_modules package-lock.json
+                        npm install
+                    else
+                        echo "Error: package.json not found in bookmyshow-app!"
+                        exit 1
+                    fi
                 '''
             }
         }
+
         stage('OWASP Dependency-Check') {
-    steps {
-        dir('bookmyshow-app') {
-            dependencyCheck additionalArguments: '--scan . --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+            steps {
+                dir('bookmyshow-app') {
+                    dependencyCheck additionalArguments: '--scan . --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                }
+            }
         }
-    }
-}
+
         stage('Publish Dependency Check Report') {
             steps {
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-        stage('Trivy FS Scan') {
-    steps {
-        sh 'trivy fs bookmyshow-app > trivyfs.txt || true'
-    }
-}
-        stage('Docker Build & Push') {
-    steps {
-        script {
-            docker.withRegistry('https://index.docker.io/v1/', 'docker') {
-                sh '''
-                    echo "Building Docker image..."
-                    docker build --no-cache -t sharad9642/bookmyshow:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                    echo "Pushing Docker image..."
-                    docker push sharad9642/bookmyshow:latest
-                '''
+        stage('Trivy FS Scan') {
+            steps {
+                sh 'trivy fs bookmyshow-app > trivyfs.txt || true'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker') {
+                        sh '''
+                            echo "Building Docker image..."
+                            docker build --no-cache -t sharad9642/bookmyshow:latest -f bookmyshow-app/Dockerfile bookmyshow-app
+
+                            echo "Pushing Docker image..."
+                            docker push sharad9642/bookmyshow:latest
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Container') {
+            steps {
+                script {
+                    sh '''
+                        echo "Stopping and removing old container..."
+                        docker stop bms || true
+                        docker rm bms || true
+
+                        echo "Running new container on port 3000..."
+                        docker run -d --restart=always --name bms -p 3000:3000 sharad9642/bookmyshow:latest
+
+                        echo "Container list:"
+                        docker ps -a
+
+                        echo "Fetching logs..."
+                        sleep 5
+                        docker logs bms || true
+                    '''
+                }
             }
         }
     }
-}
-        stage('Deploy to Container') {
-    steps {
-        script {
-            sh '''
-                echo "Stopping and removing old container..."
-                docker stop bms || true
-                docker rm bms || true
 
-                echo "Running new container on port 3000..."
-                docker run -d --restart=always --name bms -p 3000:3000 sharad9642/bookmyshow:latest
-
-                echo "Container list:"
-                docker ps -a
-
-                echo "Fetching logs..."
-                sleep 5
-                docker logs bms || true
-            '''
-        }
-    }
-}
     post {
         always {
             emailext attachLog: true,
                 subject: "'${currentBuild.result ?: 'UNKNOWN'}'",
-                body: """\
+                body: """
                     Project: ${env.JOB_NAME}<br/>
                     Build Number: ${env.BUILD_NUMBER}<br/>
                     URL: ${env.BUILD_URL}<br/>
