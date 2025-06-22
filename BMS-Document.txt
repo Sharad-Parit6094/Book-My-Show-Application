@@ -128,11 +128,11 @@ eksctl create nodegroup \
   --cluster=kubernetes-eks \
   --region=ap-south-1 \
   --name=node2 \
-  --node-type=t3.medium \
+  --node-type=t2.micro \
   --nodes=3 \
   --nodes-min=2 \
   --nodes-max=4 \
-  --node-volume-size=20 \
+  --node-volume-size=28 \
   --ssh-access \
   --ssh-public-key=Mumbai \
   --managed \
