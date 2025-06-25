@@ -72,21 +72,26 @@ pipeline {
             }
         }
 
-stage('Docker Build & Push') {
-    steps {
-        script {
-            withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+stage('Deploy to Container') {
+            steps {
                 sh ''' 
-                echo "Building Docker image..."
-                docker build --no-cache -t sharad9642/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
+                echo "Stopping and removing old container..."
+                docker stop bms || true
+                docker rm bms || true
 
-                echo "Pushing Docker image to registry..."
-                docker push sharad9642/bms:latest
+                echo "Running new container on port 3000..."
+                docker run -d --restart=always --name bms -p 3000:3000 kastrov/bms:latest
+
+                echo "Checking running containers..."
+                docker ps -a
+
+                echo "Fetching logs..."
+                sleep 5  # Give time for the app to start
+                docker logs bms
                 '''
             }
         }
     }
-}
 
 stage('Trivy Image Scan') {
     steps {
