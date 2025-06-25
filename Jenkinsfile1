@@ -71,21 +71,29 @@ pipeline {
                 sh 'trivy image sharad9642/bms:latest > trivyimage.txt || true'
             }
         }
-        stage('Docker Build & Push') {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                        sh ''' 
-                        echo "Building Docker image..."
-                        docker build --no-cache -t sharad9642/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                        echo "Pushing Docker image to registry..."
-                        docker push sharad9642/bms:latest
-                        '''
-                    }
-                }
+stage('Docker Build & Push') {
+    steps {
+        script {
+            withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                sh ''' 
+                echo "Building Docker image..."
+                docker build --no-cache -t sharad9642/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
+
+                echo "Pushing Docker image to registry..."
+                docker push sharad9642/bms:latest
+                '''
             }
         }
+    }
+}
+
+stage('Trivy Image Scan') {
+    steps {
+        sh 'trivy image sharad9642/bms:latest > trivyimage.txt || true'
+    }
+}
+
         stage('Deploy to Container') {
             steps {
                 sh ''' 
