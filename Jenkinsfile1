@@ -1,4 +1,3 @@
-(without K8S Stage)
 pipeline {
     agent any
     tools {
@@ -24,8 +23,10 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh ''' 
-                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BMS \
-                    -Dsonar.projectKey=BMS 
+                    $SCANNER_HOME/bin/sonar-scanner \
+                      -Dsonar.projectName=BMS \
+                      -Dsonar.projectKey=BMS \
+                      -Dsonar.sources=.
                     '''
                 }
             }
@@ -33,7 +34,9 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                    timeout(time: 2, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
                 }
             }
         }
@@ -60,7 +63,12 @@ pipeline {
         }
         stage('Trivy FS Scan') {
             steps {
-                sh 'trivy fs . > trivyfs.txt'
+                sh 'trivy fs . > trivyfs.txt || true'
+            }
+        }
+        stage('Trivy Image Scan') {
+            steps {
+                sh 'trivy image sharad9642/bms:latest > trivyimage.txt || true'
             }
         }
         stage('Docker Build & Push') {
@@ -92,7 +100,7 @@ pipeline {
                 docker ps -a
 
                 echo "Fetching logs..."
-                sleep 5  # Give time for the app to start
+                sleep 5
                 docker logs bms
                 '''
             }
