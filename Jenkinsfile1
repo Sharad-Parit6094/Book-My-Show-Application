@@ -107,14 +107,19 @@ pipeline {
         }
     }
     post {
-        always {
-            emailext attachLog: true,
-                subject: "'${currentBuild.result}'",
-                body: "Project: ${env.JOB_NAME}<br/>" +
-                      "Build Number: ${env.BUILD_NUMBER}<br/>" +
-                      "URL: ${env.BUILD_URL}<br/>",
-                to: 'sharadparit9642@gmail.com',
-                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+    always {
+        script {
+            if (fileExists('trivyfs.txt')) {
+                emailext attachLog: true,
+                    subject: "'${currentBuild.result}'",
+                    body: "Project: ${env.JOB_NAME}<br/>" +
+                          "Build Number: ${env.BUILD_NUMBER}<br/>" +
+                          "URL: ${env.BUILD_URL}<br/>",
+                    to: 'sharadparit9642@gmail.com',
+                    attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+            } else {
+                echo "Skipping email — workspace missing or files not generated."
+            }
         }
     }
 }
